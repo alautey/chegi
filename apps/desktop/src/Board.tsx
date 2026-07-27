@@ -1,6 +1,6 @@
 import type { Coord } from '@chegi/engine';
 import { Game } from '@chegi/engine';
-import { hasChessGlyph, PieceGlyph } from './PieceGlyph.js';
+import { GeneralGlyph, hasChessGlyph, PieceGlyph } from './PieceGlyph.js';
 import { pieceLabel } from './pieceDisplay.js';
 
 interface Props {
@@ -37,6 +37,8 @@ export default function Board({ game, selected, targets, onSquareClick }: Props)
               {piece &&
                 (hasChessGlyph(piece) ? (
                   <PieceGlyph type={piece.type as 'K' | 'Q' | 'R' | 'B' | 'N' | 'P'} color={piece.color} promoted={piece.promoted} />
+                ) : piece.type === 'G' && !piece.promoted ? (
+                  <GeneralGlyph color={piece.color} />
                 ) : (
                   <span className={`piece-tile piece-tile-${piece.color}`}>{pieceLabel(piece)}</span>
                 ))}
