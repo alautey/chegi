@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@chegi/engine": ["../../packages/engine/src/index.ts"],
+      "@chegi/ai": ["../../packages/ai/src/index.ts"],
+      "@chegi/server/protocol": ["../../packages/server/src/protocol.ts"]
+    }
+  },
+  "include": ["src"]
+}

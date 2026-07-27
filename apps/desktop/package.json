@@ -1,0 +1,38 @@
+{
+  "name": "@chegi/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n VITE,ELECTRON -c blue,green \"vite\" \"npm:electron:dev\"",
+    "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
+    "build": "vite build && tsc -p electron/tsconfig.json",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@chegi/ai": "0.1.0",
+    "@chegi/engine": "0.1.0",
+    "@chegi/server": "0.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.chegi.desktop",
+    "productName": "Chegi",
+    "files": ["dist/**", "dist-electron/**"],
+    "directories": { "output": "release" },
+    "win": { "target": "nsis" }
+  }
+}

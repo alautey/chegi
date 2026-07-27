@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: chegi-relay
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build --workspace=@chegi/engine && npm run build --workspace=@chegi/server
+    startCommand: node packages/server/dist/server.js
+    healthCheckPath: /

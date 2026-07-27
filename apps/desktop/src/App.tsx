@@ -1,0 +1,349 @@
+import type { Difficulty } from '@chegi/ai';
+import type { Color, Coord, Move, PieceType, PromotablePieceType } from '@chegi/engine';
+import { Game } from '@chegi/engine';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { AiRequest, AiResponse } from './aiWorker.js';
+import Board from './Board.js';
+import Hand from './Hand.js';
+import { PIECE_NAMES } from './pieceDisplay.js';
+import { useOnlineGame } from './useOnlineGame.js';
+
+type DroppablePieceType = PromotablePieceType | 'Q';
+type Selection = { kind: 'square'; coord: Coord } | { kind: 'hand'; pieceType: DroppablePieceType } | null;
+type OpponentMode = 'human' | 'ai' | 'online';
+
+function sameCoord(a: Coord, b: Coord): boolean {
+  return a.file === b.file && a.rank === b.rank;
+}
+
+function dedupe(coords: Coord[]): Coord[] {
+  const seen = new Set<string>();
+  const out: Coord[] = [];
+  for (const c of coords) {
+    const key = `${c.file},${c.rank}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+export default function App() {
+  const gameRef = useRef(new Game());
+  const [version, bump] = useReducer((x: number) => x + 1, 0);
+  const [selection, setSelection] = useState<Selection>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Coord; to: Coord } | null>(null);
+
+  const [opponentMode, setOpponentMode] = useState<OpponentMode>('human');
+  const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
+  const [humanColor, setHumanColor] = useState<Color>('w');
+  const [aiThinking, setAiThinking] = useState(false);
+
+  const [serverUrl, setServerUrl] = useState('ws://localhost:8080');
+  const [joinCode, setJoinCode] = useState('');
+  const [onlineGameOverMessage, setOnlineGameOverMessage] = useState<string | null>(null);
+
+  const workerRef = useRef<Worker | null>(null);
+  useEffect(() => {
+    const worker = new Worker(new URL('./aiWorker.ts', import.meta.url), { type: 'module' });
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, []);
+
+  const game = gameRef.current;
+  const legalMoves = useMemo(() => game.legalMoves(), [game, version]);
+  const gameOver = legalMoves.length === 0;
+
+  const online = useOnlineGame({
+    onMove: (move) => {
+      game.applyMove(move);
+      setSelection(null);
+      setPendingPromotion(null);
+      bump();
+    },
+    onGameOver: (reason, winner) => {
+      if (reason === 'checkmate') return; // already reflected by local legalMoves()/isInCheck()
+      const winnerName = winner === 'w' ? 'White' : winner === 'b' ? 'Black' : null;
+      setOnlineGameOverMessage(
+        reason === 'resign' ? `${winnerName} wins by resignation` : 'Opponent disconnected',
+      );
+    },
+  });
+
+  const onlineTurnOk = opponentMode !== 'online' || (online.status === 'connected' && game.turn === online.color);
+
+  function commitMove(move: Move) {
+    if (opponentMode === 'online') {
+      online.sendMove(move);
+    } else {
+      game.applyMove(move);
+      bump();
+    }
+  }
+
+  useEffect(() => {
+    if (opponentMode !== 'ai') return;
+    if (game.turn === humanColor) return;
+    if (gameOver) return;
+    const worker = workerRef.current;
+    if (!worker) return;
+
+    setAiThinking(true);
+    const request: AiRequest = { moves: game.history.map((h) => h.move), difficulty: aiDifficulty };
+
+    const handleMessage = (e: MessageEvent<AiResponse>) => {
+      game.applyMove(e.data.move);
+      setAiThinking(false);
+      setSelection(null);
+      bump();
+    };
+    worker.addEventListener('message', handleMessage, { once: true });
+    worker.postMessage(request);
+
+    return () => worker.removeEventListener('message', handleMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opponentMode, humanColor, aiDifficulty, version, gameOver]);
+
+  const targets = useMemo<Coord[]>(() => {
+    if (!selection) return [];
+    if (selection.kind === 'square') {
+      return dedupe(
+        legalMoves
+          .filter((m) => m.kind === 'move' && sameCoord(m.from, selection.coord))
+          .map((m) => (m as any).to as Coord),
+      );
+    }
+    return dedupe(
+      legalMoves.filter((m) => m.kind === 'drop' && m.pieceType === selection.pieceType).map((m) => m.to),
+    );
+  }, [legalMoves, selection]);
+
+  function resetSelection() {
+    setSelection(null);
+  }
+
+  function handleSquareClick(coord: Coord) {
+    if (pendingPromotion || aiThinking || !onlineTurnOk) return;
+    const piece = game.board.get(coord);
+
+    if (!selection) {
+      if (piece && piece.color === game.turn) setSelection({ kind: 'square', coord });
+      return;
+    }
+
+    const isTarget = targets.some((t) => sameCoord(t, coord));
+
+    if (selection.kind === 'square') {
+      if (isTarget) {
+        const variants = legalMoves.filter(
+          (m) => m.kind === 'move' && sameCoord(m.from, selection.coord) && sameCoord(m.to, coord),
+        );
+        if (variants.length === 2) {
+          setPendingPromotion({ from: selection.coord, to: coord });
+        } else {
+          commitMove(variants[0]);
+          resetSelection();
+        }
+        return;
+      }
+    } else if (selection.kind === 'hand') {
+      if (isTarget) {
+        commitMove({ kind: 'drop', pieceType: selection.pieceType, to: coord });
+        resetSelection();
+        return;
+      }
+    }
+
+    if (piece && piece.color === game.turn) {
+      setSelection({ kind: 'square', coord });
+    } else {
+      resetSelection();
+    }
+  }
+
+  function handleHandSelect(color: 'w' | 'b', type: PieceType) {
+    if (pendingPromotion || aiThinking || !onlineTurnOk) return;
+    if (color !== game.turn) return;
+    if (type === 'K') return; // King can never be captured (capturing it ends the game), so never in hand
+    setSelection({ kind: 'hand', pieceType: type });
+  }
+
+  function choosePromotion(promote: boolean) {
+    if (!pendingPromotion) return;
+    const move = legalMoves.find(
+      (m) =>
+        m.kind === 'move' &&
+        sameCoord(m.from, pendingPromotion.from) &&
+        sameCoord(m.to, pendingPromotion.to) &&
+        m.promote === promote,
+    );
+    if (move) commitMove(move);
+    setPendingPromotion(null);
+    resetSelection();
+  }
+
+  function newGame() {
+    gameRef.current = new Game();
+    resetSelection();
+    setPendingPromotion(null);
+    setAiThinking(false);
+    setOnlineGameOverMessage(null);
+    if (opponentMode === 'online') online.disconnect();
+    bump();
+  }
+
+  const inCheck = game.isInCheck();
+  const noMoves = legalMoves.length === 0;
+  const turnName = game.turn === 'w' ? 'White' : 'Black';
+  let status: string;
+  if (onlineGameOverMessage) {
+    status = onlineGameOverMessage;
+  } else if (noMoves && inCheck) {
+    status = `Checkmate — ${game.turn === 'w' ? 'Black' : 'White'} wins`;
+  } else if (noMoves) {
+    status = `Stalemate — ${turnName} has no legal move`;
+  } else if (aiThinking) {
+    status = `${turnName} (AI) is thinking…`;
+  } else if (opponentMode === 'online' && online.status === 'waiting') {
+    status = `Waiting for opponent to join room ${online.roomId}…`;
+  } else if (opponentMode === 'online' && online.status !== 'connected') {
+    status = 'Not connected';
+  } else {
+    status = `${turnName} to move${inCheck ? ' — Check!' : ''}`;
+  }
+
+  const movingPieceType =
+    selection?.kind === 'square' ? game.board.get(selection.coord)?.type : selection?.kind === 'hand' ? selection.pieceType : null;
+
+  return (
+    <div className="app">
+      <div className="top-bar">
+        <h1>Chegi</h1>
+        <div className="game-settings">
+          <label>
+            Opponent
+            <select
+              value={opponentMode}
+              onChange={(e) => {
+                if (opponentMode === 'online') online.disconnect();
+                setOpponentMode(e.target.value as OpponentMode);
+              }}
+            >
+              <option value="human">Human (hotseat)</option>
+              <option value="ai">AI</option>
+              <option value="online">Online</option>
+            </select>
+          </label>
+          {opponentMode === 'ai' && (
+            <>
+              <label>
+                Difficulty
+                <select value={aiDifficulty} onChange={(e) => setAiDifficulty(e.target.value as Difficulty)}>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+              <label>
+                Play as
+                <select value={humanColor} onChange={(e) => setHumanColor(e.target.value as Color)}>
+                  <option value="w">White</option>
+                  <option value="b">Black</option>
+                </select>
+              </label>
+            </>
+          )}
+        </div>
+        <button onClick={newGame}>New Game</button>
+      </div>
+
+      {opponentMode === 'online' && (
+        <div className="online-bar">
+          {online.status === 'idle' || online.status === 'closed' || online.status === 'error' ? (
+            <>
+              <input
+                className="server-input"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder="ws://server-address"
+              />
+              <button onClick={() => online.createGame(serverUrl)}>Create Game</button>
+              <span className="online-divider">or</span>
+              <input
+                className="join-input"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="Room code"
+                maxLength={5}
+              />
+              <button onClick={() => online.joinGame(serverUrl, joinCode)} disabled={!joinCode}>
+                Join Game
+              </button>
+              {online.error && <span className="online-error">{online.error}</span>}
+            </>
+          ) : (
+            <>
+              <span>
+                Room <strong>{online.roomId}</strong> — you are {online.color === 'w' ? 'White' : 'Black'}
+              </span>
+              {online.status === 'waiting' && <span className="online-waiting">Share the code — waiting for your opponent…</span>}
+              {online.status === 'connected' && !gameOver && <button onClick={() => online.resign()}>Resign</button>}
+              <button onClick={() => online.disconnect()}>Disconnect</button>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="main">
+        <div className="side side-left">
+          <Hand
+            color="b"
+            hand={game.board.hands.b}
+            selectedType={selection?.kind === 'hand' && game.turn === 'b' ? selection.pieceType : null}
+            active={game.turn === 'b'}
+            onSelect={(t) => handleHandSelect('b', t)}
+          />
+        </div>
+
+        <div className="center">
+          <div className={`status ${inCheck ? 'status-check' : ''}`}>{status}</div>
+          <Board game={game} selected={selection?.kind === 'square' ? selection.coord : null} targets={targets} onSquareClick={handleSquareClick} />
+          {movingPieceType && <div className="hint">Moving: {PIECE_NAMES[movingPieceType]}</div>}
+        </div>
+
+        <div className="side side-right">
+          <Hand
+            color="w"
+            hand={game.board.hands.w}
+            selectedType={selection?.kind === 'hand' && game.turn === 'w' ? selection.pieceType : null}
+            active={game.turn === 'w'}
+            onSelect={(t) => handleHandSelect('w', t)}
+          />
+          <div className="history">
+            <div className="history-label">Moves</div>
+            <ol className="history-list">
+              {game.history.map((h, i) => (
+                <li key={i}>
+                  <span className={h.color === 'w' ? 'move-white' : 'move-black'}>{h.notation}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      {pendingPromotion && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <p>Promote this piece?</p>
+            <div className="modal-buttons">
+              <button onClick={() => choosePromotion(true)}>Promote</button>
+              <button onClick={() => choosePromotion(false)}>Decline</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
