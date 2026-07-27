@@ -189,12 +189,9 @@ body {
   outline: 3px solid #4f9dde inset;
 }
 
-.piece {
+.piece-tile {
   font-weight: 700;
   font-size: 20px;
-  color: #201a10;
-  background: #f4ead8;
-  border: 2px solid #201a10;
   border-radius: 6px;
   width: 46px;
   height: 46px;
@@ -203,9 +200,56 @@ body {
   justify-content: center;
 }
 
-.piece-black {
-  transform: rotate(180deg);
+.piece-tile-w {
+  color: #201a10;
   background: #f4ead8;
+  border: 2px solid #201a10;
+}
+
+.piece-tile-b {
+  color: #f4ead8;
+  background: #201a10;
+  border: 2px solid #f4ead8;
+}
+
+.piece-glyph {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+}
+
+.piece-glyph-w {
+  color: #f7f0e2;
+  -webkit-text-stroke: 1.5px #201a10;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+.piece-glyph-b {
+  color: #14100a;
+  -webkit-text-stroke: 1.5px #f7f0e2;
+}
+
+.promo-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4f9dde;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  -webkit-text-stroke: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .target-dot {

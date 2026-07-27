@@ -1,5 +1,6 @@
 import type { Coord } from '@chegi/engine';
 import { Game } from '@chegi/engine';
+import { hasChessGlyph, PieceGlyph } from './PieceGlyph.js';
 import { pieceLabel } from './pieceDisplay.js';
 
 interface Props {
@@ -33,11 +34,12 @@ export default function Board({ game, selected, targets, onSquareClick }: Props)
 
           return (
             <div key={`${file},${rank}`} className={classes.join(' ')} onClick={() => onSquareClick(coord)}>
-              {piece && (
-                <span className={`piece ${piece.color === 'b' ? 'piece-black' : 'piece-white'}`}>
-                  {pieceLabel(piece)}
-                </span>
-              )}
+              {piece &&
+                (hasChessGlyph(piece) ? (
+                  <PieceGlyph type={piece.type as 'K' | 'Q' | 'R' | 'B' | 'N' | 'P'} color={piece.color} promoted={piece.promoted} />
+                ) : (
+                  <span className={`piece-tile piece-tile-${piece.color}`}>{pieceLabel(piece)}</span>
+                ))}
               {isTarget && !piece && <span className="target-dot" />}
               {isTarget && piece && <span className="target-ring" />}
             </div>
