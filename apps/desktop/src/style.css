@@ -53,6 +53,11 @@ body {
   font-size: 13px;
 }
 
+.top-bar-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .top-bar button {
   background: #4a4030;
   color: #f0e9dd;
@@ -64,6 +69,15 @@ body {
 
 .top-bar button:hover {
   background: #5c503b;
+}
+
+.top-bar-actions button:first-child {
+  background: #5a2f2a;
+  border-color: #7a3f38;
+}
+
+.top-bar-actions button:first-child:hover {
+  background: #6e3a33;
 }
 
 .online-bar {

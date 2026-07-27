@@ -3,6 +3,7 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  root: __dirname,
   plugins: [react()],
   base: './',
   resolve: {

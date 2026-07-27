@@ -40,9 +40,9 @@ export default function App() {
   const [humanColor, setHumanColor] = useState<Color>('w');
   const [aiThinking, setAiThinking] = useState(false);
 
-  const [serverUrl, setServerUrl] = useState('ws://localhost:8080');
+  const [serverUrl, setServerUrl] = useState('wss://chegi-relay.onrender.com');
   const [joinCode, setJoinCode] = useState('');
-  const [onlineGameOverMessage, setOnlineGameOverMessage] = useState<string | null>(null);
+  const [gameOverMessage, setGameOverMessage] = useState<string | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function App() {
 
   const game = gameRef.current;
   const legalMoves = useMemo(() => game.legalMoves(), [game, version]);
-  const gameOver = legalMoves.length === 0;
+  const gameOver = legalMoves.length === 0 || gameOverMessage !== null;
 
   const online = useOnlineGame({
     onMove: (move) => {
@@ -65,7 +65,7 @@ export default function App() {
     onGameOver: (reason, winner) => {
       if (reason === 'checkmate') return; // already reflected by local legalMoves()/isInCheck()
       const winnerName = winner === 'w' ? 'White' : winner === 'b' ? 'Black' : null;
-      setOnlineGameOverMessage(
+      setGameOverMessage(
         reason === 'resign' ? `${winnerName} wins by resignation` : 'Opponent disconnected',
       );
     },
@@ -124,7 +124,7 @@ export default function App() {
   }
 
   function handleSquareClick(coord: Coord) {
-    if (pendingPromotion || aiThinking || !onlineTurnOk) return;
+    if (pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
     const piece = game.board.get(coord);
 
     if (!selection) {
@@ -163,7 +163,7 @@ export default function App() {
   }
 
   function handleHandSelect(color: 'w' | 'b', type: PieceType) {
-    if (pendingPromotion || aiThinking || !onlineTurnOk) return;
+    if (pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
     if (color !== game.turn) return;
     if (type === 'K') return; // King can never be captured (capturing it ends the game), so never in hand
     setSelection({ kind: 'hand', pieceType: type });
@@ -183,12 +183,25 @@ export default function App() {
     resetSelection();
   }
 
+  function resign() {
+    if (gameOver) return;
+    if (!window.confirm('Resign this game?')) return;
+    if (opponentMode === 'online') {
+      online.resign();
+      return;
+    }
+    // In hotseat, whoever's turn it is concedes; in vs-AI, resigning is always the human's decision.
+    const resigningColor = opponentMode === 'ai' ? humanColor : game.turn;
+    const winner: Color = resigningColor === 'w' ? 'b' : 'w';
+    setGameOverMessage(`${winner === 'w' ? 'White' : 'Black'} wins by resignation`);
+  }
+
   function newGame() {
     gameRef.current = new Game();
     resetSelection();
     setPendingPromotion(null);
     setAiThinking(false);
-    setOnlineGameOverMessage(null);
+    setGameOverMessage(null);
     if (opponentMode === 'online') online.disconnect();
     bump();
   }
@@ -197,8 +210,8 @@ export default function App() {
   const noMoves = legalMoves.length === 0;
   const turnName = game.turn === 'w' ? 'White' : 'Black';
   let status: string;
-  if (onlineGameOverMessage) {
-    status = onlineGameOverMessage;
+  if (gameOverMessage) {
+    status = gameOverMessage;
   } else if (noMoves && inCheck) {
     status = `Checkmate — ${game.turn === 'w' ? 'Black' : 'White'} wins`;
   } else if (noMoves) {
@@ -255,7 +268,12 @@ export default function App() {
             </>
           )}
         </div>
-        <button onClick={newGame}>New Game</button>
+        <div className="top-bar-actions">
+          {!gameOver && (opponentMode !== 'online' || online.status === 'connected') && (
+            <button onClick={resign}>Resign</button>
+          )}
+          <button onClick={newGame}>New Game</button>
+        </div>
       </div>
 
       {opponentMode === 'online' && (
@@ -288,7 +306,6 @@ export default function App() {
                 Room <strong>{online.roomId}</strong> — you are {online.color === 'w' ? 'White' : 'Black'}
               </span>
               {online.status === 'waiting' && <span className="online-waiting">Share the code — waiting for your opponent…</span>}
-              {online.status === 'connected' && !gameOver && <button onClick={() => online.resign()}>Resign</button>}
               <button onClick={() => online.disconnect()}>Disconnect</button>
             </>
           )}
