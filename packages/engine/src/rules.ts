@@ -148,6 +148,9 @@ export function computeTemplarGrant(
   plyAfterMove: number,
 ): TemplarWindow | null {
   if (movedPiece.type !== 'B' || captured?.type !== 'B') return null;
+  // Must be the bishop's very first move: a bishop that returned to (or was
+  // dropped on) its home corner does not qualify.
+  if (movedPiece.hasMoved) return null;
   if (!coordEquals(moveFrom, bishopHomeSquare(moverColor))) return null;
   const victim = moverColor === 'w' ? 'b' : 'w';
   return { forColor: victim, target: moveTo, validAtPly: plyAfterMove };
