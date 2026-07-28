@@ -30,8 +30,12 @@ function orderMoves(game: Game, moves: Move[], preferred: Move | null): Move[] {
   return scored;
 }
 
+class SearchTimeout extends Error {}
+
 /** Negamax with alpha-beta pruning. Returns a score from the perspective of `game.turn` at this node. */
-function negamax(game: Game, depth: number, ply: number, alpha: number, beta: number): number {
+function negamax(game: Game, depth: number, ply: number, alpha: number, beta: number, deadline: number): number {
+  if (Date.now() > deadline) throw new SearchTimeout();
+
   const legal = game.legalMoves();
 
   if (legal.length === 0) {
@@ -45,7 +49,7 @@ function negamax(game: Game, depth: number, ply: number, alpha: number, beta: nu
   for (const move of orderMoves(game, legal, null)) {
     const child = game.clone();
     child.applyMove(move);
-    const score = -negamax(child, depth - 1, ply + 1, -beta, -alpha);
+    const score = -negamax(child, depth - 1, ply + 1, -beta, -alpha, deadline);
     if (score > best) best = score;
     if (best > alpha) alpha = best;
     if (alpha >= beta) break;
@@ -58,7 +62,7 @@ export function chooseMove(game: Game, options: SearchOptions): Move {
   if (legal.length === 0) throw new Error('no legal moves available');
   if (legal.length === 1) return legal[0];
 
-  const start = Date.now();
+  const deadline = Date.now() + options.timeBudgetMs;
   let bestMove: Move = legal[0];
 
   for (let depth = 1; depth <= options.maxDepth; depth++) {
@@ -67,19 +71,25 @@ export function chooseMove(game: Game, options: SearchOptions): Move {
     let currentBest = bestMove;
     let currentBestScore = -Infinity;
 
-    for (const move of orderMoves(game, legal, bestMove)) {
-      const child = game.clone();
-      child.applyMove(move);
-      const score = -negamax(child, depth - 1, 1, -beta, -alpha);
-      if (score > currentBestScore) {
-        currentBestScore = score;
-        currentBest = move;
+    try {
+      for (const move of orderMoves(game, legal, bestMove)) {
+        const child = game.clone();
+        child.applyMove(move);
+        const score = -negamax(child, depth - 1, 1, -beta, -alpha, deadline);
+        if (score > currentBestScore) {
+          currentBestScore = score;
+          currentBest = move;
+        }
+        if (score > alpha) alpha = score;
       }
-      if (score > alpha) alpha = score;
+    } catch (e) {
+      // Keep the best move from the last fully completed depth.
+      if (e instanceof SearchTimeout) break;
+      throw e;
     }
 
     bestMove = currentBest;
-    if (Date.now() - start > options.timeBudgetMs) break;
+    if (Date.now() > deadline) break;
   }
 
   return bestMove;
