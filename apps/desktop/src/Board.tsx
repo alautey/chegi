@@ -1,4 +1,4 @@
-import type { Coord } from '@chegi/engine';
+import type { Color, Coord } from '@chegi/engine';
 import { Game } from '@chegi/engine';
 import { GeneralIcon } from './GeneralIcon.js';
 import { pieceMark, pieceUsesGlyph } from './pieceDisplay.js';
@@ -8,16 +8,19 @@ interface Props {
   selected: Coord | null;
   targets: Coord[];
   onSquareClick: (c: Coord) => void;
+  /** Whose perspective the board is drawn from — that color's pieces render upright and sit at the bottom. */
+  viewColor: Color;
 }
 
 function coordIn(list: Coord[], c: Coord): boolean {
   return list.some((t) => t.file === c.file && t.rank === c.rank);
 }
 
-export default function Board({ game, selected, targets, onSquareClick }: Props) {
-  // Rendered top-to-bottom as Black's home rank (7) down to White's (0), files a-h left to right.
-  const ranks = [7, 6, 5, 4, 3, 2, 1, 0];
-  const files = [0, 1, 2, 3, 4, 5, 6, 7];
+export default function Board({ game, selected, targets, onSquareClick, viewColor }: Props) {
+  // Rendered so viewColor's home rank is at the bottom, files ascending left to right from
+  // that player's seat — a full 180° turn of the board, not a mirror, when viewColor is 'b'.
+  const ranks = viewColor === 'w' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+  const files = viewColor === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
 
   return (
     <div className="board">
@@ -36,7 +39,7 @@ export default function Board({ game, selected, targets, onSquareClick }: Props)
             <div key={`${file},${rank}`} className={classes.join(' ')} onClick={() => onSquareClick(coord)}>
               {piece && (
                 <span
-                  className={`piece-tile ${piece.color === 'b' ? 'piece-flipped' : ''} ${piece.promoted ? 'piece-promoted' : ''} ${pieceUsesGlyph(piece) ? 'piece-tile-glyph' : ''}`}
+                  className={`piece-tile ${piece.color !== viewColor ? 'piece-flipped' : ''} ${piece.promoted ? 'piece-promoted' : ''} ${pieceUsesGlyph(piece) ? 'piece-tile-glyph' : ''}`}
                 >
                   {piece.type === 'G' ? <GeneralIcon /> : pieceMark(piece)}
                 </span>

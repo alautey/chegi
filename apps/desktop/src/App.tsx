@@ -85,6 +85,12 @@ export default function App() {
 
   const onlineTurnOk = opponentMode !== 'online' || (online.status === 'connected' && game.turn === online.color);
 
+  // Whoever's perspective we draw the board from: fixed to the human's own color
+  // against the AI or online, but flips each turn in hotseat so whoever's about
+  // to move always sees their own pieces upright at the bottom.
+  const viewColor: Color =
+    opponentMode === 'ai' ? humanColor : opponentMode === 'online' ? online.color ?? 'w' : game.turn;
+
   function commitMove(move: Move) {
     if (opponentMode === 'online') {
       online.sendMove(move);
@@ -341,7 +347,13 @@ export default function App() {
 
         <div className="center">
           <div className={`status ${inCheck ? 'status-check' : ''}`}>{status}</div>
-          <Board game={game} selected={selection?.kind === 'square' ? selection.coord : null} targets={targets} onSquareClick={handleSquareClick} />
+          <Board
+            game={game}
+            selected={selection?.kind === 'square' ? selection.coord : null}
+            targets={targets}
+            onSquareClick={handleSquareClick}
+            viewColor={viewColor}
+          />
           {movingPieceType && <div className="hint">Moving: {PIECE_NAMES[movingPieceType]}</div>}
         </div>
 
