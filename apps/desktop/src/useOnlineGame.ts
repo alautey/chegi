@@ -1,15 +1,19 @@
-import type { Color, Move } from '@chegi/engine';
+import type { AppliedMove, Color, Move } from '@chegi/engine';
 import type { ClientMessage, GameOverReason, ServerMessage } from '@chegi/server/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type OnlineStatus = 'idle' | 'connecting' | 'waiting' | 'connected' | 'closed' | 'error';
 
 export interface UseOnlineGameOptions {
+  /** Fired when the server confirms a created room — the local game must be reset to the initial position. */
+  onCreated: () => void;
+  /** Fired when the server confirms a join — the local game must be reset and `history` replayed. */
+  onJoined: (history: AppliedMove[]) => void;
   onMove: (move: Move) => void;
   onGameOver: (reason: GameOverReason, winner: Color | null) => void;
 }
 
-export function useOnlineGame({ onMove, onGameOver }: UseOnlineGameOptions) {
+export function useOnlineGame({ onCreated, onJoined, onMove, onGameOver }: UseOnlineGameOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<OnlineStatus>('idle');
   const [color, setColor] = useState<Color | null>(null);
@@ -17,6 +21,10 @@ export function useOnlineGame({ onMove, onGameOver }: UseOnlineGameOptions) {
   const [error, setError] = useState<string | null>(null);
 
   // Refs so the long-lived socket handler always calls the latest callback.
+  const onCreatedRef = useRef(onCreated);
+  onCreatedRef.current = onCreated;
+  const onJoinedRef = useRef(onJoined);
+  onJoinedRef.current = onJoined;
   const onMoveRef = useRef(onMove);
   onMoveRef.current = onMove;
   const onGameOverRef = useRef(onGameOver);
@@ -56,23 +64,35 @@ export function useOnlineGame({ onMove, onGameOver }: UseOnlineGameOptions) {
     ws.onclose = () => setStatus((s) => (s === 'error' ? s : 'closed'));
 
     ws.onmessage = (event) => {
-      const msg: ServerMessage = JSON.parse(event.data);
+      let msg: ServerMessage;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        setError('Received a malformed message from the server');
+        return;
+      }
       switch (msg.type) {
         case 'created':
           setColor(msg.color);
           setRoomId(msg.roomId);
           setStatus('waiting');
+          onCreatedRef.current();
           break;
         case 'joined':
           setColor(msg.color);
           setRoomId(msg.roomId);
           setStatus('connected');
+          onJoinedRef.current(msg.history);
           break;
         case 'opponent_joined':
           setStatus('connected');
           break;
         case 'move':
-          onMoveRef.current(msg.applied.move);
+          try {
+            onMoveRef.current(msg.applied.move);
+          } catch {
+            setError('Out of sync with the server — disconnect and rejoin');
+          }
           break;
         case 'opponent_left':
           setError('Opponent disconnected');

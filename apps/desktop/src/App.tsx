@@ -1,5 +1,5 @@
 import type { Difficulty } from '@chegi/ai';
-import type { Color, Coord, Move, PieceType, PromotablePieceType } from '@chegi/engine';
+import type { AppliedMove, Color, Coord, Move, PieceType, PromotablePieceType } from '@chegi/engine';
 import { Game } from '@chegi/engine';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { AiRequest, AiResponse } from './aiWorker.js';
@@ -55,7 +55,19 @@ export default function App() {
   const legalMoves = useMemo(() => game.legalMoves(), [game, version]);
   const gameOver = legalMoves.length === 0 || gameOverMessage !== null;
 
+  function resetLocalGame(history: AppliedMove[]) {
+    const g = new Game();
+    for (const h of history) g.applyMove(h.move);
+    gameRef.current = g;
+    setSelection(null);
+    setPendingPromotion(null);
+    setGameOverMessage(null);
+    bump();
+  }
+
   const online = useOnlineGame({
+    onCreated: () => resetLocalGame([]),
+    onJoined: (history) => resetLocalGame(history),
     onMove: (move) => {
       game.applyMove(move);
       setSelection(null);
@@ -101,7 +113,11 @@ export default function App() {
     worker.addEventListener('message', handleMessage, { once: true });
     worker.postMessage(request);
 
-    return () => worker.removeEventListener('message', handleMessage);
+    return () => {
+      worker.removeEventListener('message', handleMessage);
+      // Without this, switching mode/color mid-search leaves the UI stuck on "thinking".
+      setAiThinking(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opponentMode, humanColor, aiDifficulty, version, gameOver]);
 
@@ -298,7 +314,6 @@ export default function App() {
               <button onClick={() => online.joinGame(serverUrl, joinCode)} disabled={!joinCode}>
                 Join Game
               </button>
-              {online.error && <span className="online-error">{online.error}</span>}
             </>
           ) : (
             <>
@@ -309,6 +324,7 @@ export default function App() {
               <button onClick={() => online.disconnect()}>Disconnect</button>
             </>
           )}
+          {online.error && <span className="online-error">{online.error}</span>}
         </div>
       )}
 
