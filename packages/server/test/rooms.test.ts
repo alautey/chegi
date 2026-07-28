@@ -62,6 +62,22 @@ describe('RoomManager', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('rejects moves after the game has ended', () => {
+    const rm = new RoomManager();
+    const { room } = rm.createRoom();
+    rm.joinRoom(room.id);
+
+    rm.endGame(room.id);
+    const result = rm.applyMove(room.id, 'w', {
+      kind: 'move',
+      from: { file: 4, rank: 1 },
+      to: { file: 4, rank: 3 },
+      promote: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('Game is over');
+  });
+
   it('rejects an illegal move', () => {
     const rm = new RoomManager();
     const { room } = rm.createRoom();

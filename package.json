@@ -7,7 +7,16 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @chegi/engine && npm run build -w @chegi/ai -w @chegi/server && npm run build -w @chegi/desktop",
     "test": "npm run test --workspaces --if-present"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8"
+  },
+  "allowScripts": {
+    "electron@43.2.0": true,
+    "esbuild@0.21.5": true,
+    "esbuild@0.28.1": true,
+    "electron-winstaller@5.4.0": true
   }
 }
