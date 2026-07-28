@@ -44,7 +44,11 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg: ClientMessage;
     try {
-      msg = JSON.parse(raw.toString());
+      const parsed: unknown = JSON.parse(raw.toString());
+      if (typeof parsed !== 'object' || parsed === null || typeof (parsed as { type?: unknown }).type !== 'string') {
+        throw new Error('not a message object');
+      }
+      msg = parsed as ClientMessage;
     } catch {
       send(ws, { type: 'error', message: 'Malformed message' });
       return;
@@ -54,6 +58,10 @@ wss.on('connection', (ws) => {
 
     switch (msg.type) {
       case 'create': {
+        if (state.roomId) {
+          send(ws, { type: 'error', message: 'Already in a game' });
+          return;
+        }
         const { room, color } = rooms.createRoom();
         state.roomId = room.id;
         state.color = color;
@@ -63,6 +71,10 @@ wss.on('connection', (ws) => {
       }
 
       case 'join': {
+        if (state.roomId) {
+          send(ws, { type: 'error', message: 'Already in a game' });
+          return;
+        }
         const result = rooms.joinRoom(msg.roomId);
         if (!result.ok) {
           send(ws, { type: 'error', message: result.error });
@@ -110,6 +122,7 @@ wss.on('connection', (ws) => {
 
       case 'resign': {
         if (!state.roomId || !state.color) return;
+        rooms.endGame(state.roomId);
         const overMsg: ServerMessage = { type: 'game_over', reason: 'resign', winner: opponentOf(state.color) };
         send(ws, overMsg);
         sendToOpponent(state.roomId, state.color, overMsg);
