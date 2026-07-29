@@ -230,6 +230,7 @@ export default function App() {
 
   const inCheck = game.isInCheck();
   const noMoves = legalMoves.length === 0;
+  const checkSquare = inCheck ? game.board.findKing(game.turn) : null;
   const turnName = game.turn === 'w' ? 'White' : 'Black';
   let status: string;
   if (gameOverMessage) {
@@ -353,6 +354,9 @@ export default function App() {
             targets={targets}
             onSquareClick={handleSquareClick}
             viewColor={viewColor}
+            lastMove={game.history.length > 0 ? game.history[game.history.length - 1].move : null}
+            checkSquare={checkSquare}
+            checkmate={noMoves && inCheck}
           />
           {movingPieceType && <div className="hint">Moving: {PIECE_NAMES[movingPieceType]}</div>}
         </div>
