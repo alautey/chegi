@@ -5,6 +5,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { AiRequest, AiResponse } from './aiWorker.js';
 import Board from './Board.js';
 import Hand from './Hand.js';
+import LearnToPlay from './LearnToPlay.js';
 import { PIECE_NAMES } from './pieceDisplay.js';
 import { useOnlineGame } from './useOnlineGame.js';
 
@@ -43,6 +44,7 @@ export default function App() {
   const [serverUrl, setServerUrl] = useState('wss://chegi-relay.onrender.com');
   const [joinCode, setJoinCode] = useState('');
   const [gameOverMessage, setGameOverMessage] = useState<string | null>(null);
+  const [showLearn, setShowLearn] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
   useEffect(() => {
@@ -296,6 +298,7 @@ export default function App() {
             <button onClick={resign}>Resign</button>
           )}
           <button onClick={newGame}>New Game</button>
+          <button onClick={() => setShowLearn(true)}>Learn to Play</button>
         </div>
       </div>
 
@@ -393,6 +396,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {showLearn && <LearnToPlay onClose={() => setShowLearn(false)} />}
     </div>
   );
 }

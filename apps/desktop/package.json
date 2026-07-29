@@ -2,13 +2,15 @@
   "name": "@chegi/desktop",
   "private": true,
   "version": "0.1.0",
+  "description": "Chegi — a custom chess/shogi hybrid",
+  "author": "alautey",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k -n VITE,ELECTRON -c blue,green \"vite\" \"npm:electron:dev\"",
     "dev:web": "vite",
     "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
     "build": "vite build && tsc -p electron/tsconfig.json",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder --config.directories.output=\"%TEMP%\\chegi-desktop-release\""
   },
   "dependencies": {
     "@chegi/ai": "0.1.0",
@@ -40,7 +42,7 @@
       "output": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": ["portable", "nsis"]
     }
   }
 }
