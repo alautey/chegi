@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon
+    points="50,3 80,25 92,97 8,97 20,25"
+    fill="#e8cf9c"
+    stroke="#201a10"
+    stroke-width="7"
+    stroke-linejoin="round"
+  />
+  <text
+    x="50"
+    y="75"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="44"
+    font-weight="700"
+    text-anchor="middle"
+    fill="#201a10"
+  >K</text>
+</svg>

@@ -10,7 +10,8 @@
     "dev:web": "vite",
     "electron:dev": "wait-on tcp:5173 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
     "build": "vite build && tsc -p electron/tsconfig.json",
-    "dist": "npm run build && electron-builder --config.directories.output=\"%TEMP%\\chegi-desktop-release\""
+    "dist": "npm run build && electron-builder --config.directories.output=\"%TEMP%\\chegi-desktop-release\"",
+    "icon": "node build/make-icon.mjs"
   },
   "dependencies": {
     "@chegi/ai": "0.1.0",
@@ -27,6 +28,8 @@
     "cross-env": "^7.0.3",
     "electron": "43.2.0",
     "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3",
     "typescript": "^5.6.0",
     "vite": "^8.1.5",
     "wait-on": "^8.0.0"
@@ -42,7 +45,15 @@
       "output": "release"
     },
     "win": {
-      "target": ["portable", "nsis"]
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Chegi"
     }
   }
 }
