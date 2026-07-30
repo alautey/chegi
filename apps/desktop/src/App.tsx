@@ -3,11 +3,14 @@ import type { AppliedMove, Color, Coord, Move, PieceType, PromotablePieceType } 
 import { Game } from '@chegi/engine';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { AiRequest, AiResponse } from './aiWorker.js';
-import Board from './Board.js';
+import Board, { type BoardTheme } from './Board.js';
 import Hand from './Hand.js';
 import LearnToPlay from './LearnToPlay.js';
-import { PIECE_NAMES } from './pieceDisplay.js';
+import { PIECE_NAMES, type PieceSetId } from './pieceDisplay.js';
+import { playMoveOutcomeSounds } from './sound.js';
+import Themes from './Themes.js';
 import { useOnlineGame } from './useOnlineGame.js';
+import { useStoredState } from './useStoredState.js';
 
 type DroppablePieceType = PromotablePieceType | 'Q';
 type Selection = { kind: 'square'; coord: Coord } | { kind: 'hand'; pieceType: DroppablePieceType } | null;
@@ -45,6 +48,9 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('');
   const [gameOverMessage, setGameOverMessage] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+  const [boardTheme, setBoardTheme] = useStoredState<BoardTheme>('chegi.boardTheme', 'wood', ['wood', 'green', 'blue', 'shogi']);
+  const [pieceSet, setPieceSet] = useStoredState<PieceSetId>('chegi.pieceSet', 'chess', ['chess', 'letters', 'kanji']);
 
   const workerRef = useRef<Worker | null>(null);
   useEffect(() => {
@@ -71,7 +77,8 @@ export default function App() {
     onCreated: () => resetLocalGame([]),
     onJoined: (history) => resetLocalGame(history),
     onMove: (move) => {
-      game.applyMove(move);
+      const applied = game.applyMove(move);
+      playMoveOutcomeSounds(applied);
       setSelection(null);
       setPendingPromotion(null);
       bump();
@@ -93,11 +100,18 @@ export default function App() {
   const viewColor: Color =
     opponentMode === 'ai' ? humanColor : opponentMode === 'online' ? online.color ?? 'w' : game.turn;
 
+  // Hand trays sit next to whichever side of the board that color currently occupies —
+  // bottomColor's pieces render at the bottom of the board (see viewColor above), so its
+  // tray anchors to the bottom of the side panel, and swaps places when hotseat flips the board.
+  const bottomColor: Color = viewColor;
+  const topColor: Color = viewColor === 'w' ? 'b' : 'w';
+
   function commitMove(move: Move) {
     if (opponentMode === 'online') {
       online.sendMove(move);
     } else {
-      game.applyMove(move);
+      const applied = game.applyMove(move);
+      playMoveOutcomeSounds(applied);
       bump();
     }
   }
@@ -113,7 +127,8 @@ export default function App() {
     const request: AiRequest = { moves: game.history.map((h) => h.move), difficulty: aiDifficulty };
 
     const handleMessage = (e: MessageEvent<AiResponse>) => {
-      game.applyMove(e.data.move);
+      const applied = game.applyMove(e.data.move);
+      playMoveOutcomeSounds(applied);
       setAiThinking(false);
       setSelection(null);
       bump();
@@ -298,7 +313,8 @@ export default function App() {
             <button onClick={resign}>Resign</button>
           )}
           <button onClick={newGame}>New Game</button>
-          <button onClick={() => setShowLearn(true)}>Learn to Play</button>
+          <button onClick={() => setShowLearn(true)}>How to Play</button>
+          <button onClick={() => setShowThemes(true)}>Themes</button>
         </div>
       </div>
 
@@ -341,11 +357,18 @@ export default function App() {
       <div className="main">
         <div className="side side-left">
           <Hand
-            color="b"
-            hand={game.board.hands.b}
-            selectedType={selection?.kind === 'hand' && game.turn === 'b' ? selection.pieceType : null}
-            active={game.turn === 'b'}
-            onSelect={(t) => handleHandSelect('b', t)}
+            color={topColor}
+            hand={game.board.hands[topColor]}
+            selectedType={selection?.kind === 'hand' && game.turn === topColor ? selection.pieceType : null}
+            active={game.turn === topColor}
+            onSelect={(t) => handleHandSelect(topColor, t)}
+          />
+          <Hand
+            color={bottomColor}
+            hand={game.board.hands[bottomColor]}
+            selectedType={selection?.kind === 'hand' && game.turn === bottomColor ? selection.pieceType : null}
+            active={game.turn === bottomColor}
+            onSelect={(t) => handleHandSelect(bottomColor, t)}
           />
         </div>
 
@@ -360,18 +383,13 @@ export default function App() {
             lastMove={game.history.length > 0 ? game.history[game.history.length - 1].move : null}
             checkSquare={checkSquare}
             checkmate={noMoves && inCheck}
+            boardTheme={boardTheme}
+            pieceSet={pieceSet}
           />
           {movingPieceType && <div className="hint">Moving: {PIECE_NAMES[movingPieceType]}</div>}
         </div>
 
         <div className="side side-right">
-          <Hand
-            color="w"
-            hand={game.board.hands.w}
-            selectedType={selection?.kind === 'hand' && game.turn === 'w' ? selection.pieceType : null}
-            active={game.turn === 'w'}
-            onSelect={(t) => handleHandSelect('w', t)}
-          />
           <div className="history">
             <div className="history-label">Moves</div>
             <ol className="history-list">
@@ -397,7 +415,17 @@ export default function App() {
         </div>
       )}
 
-      {showLearn && <LearnToPlay onClose={() => setShowLearn(false)} />}
+      {showLearn && <LearnToPlay boardTheme={boardTheme} pieceSet={pieceSet} onClose={() => setShowLearn(false)} />}
+
+      {showThemes && (
+        <Themes
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+          onBoardTheme={setBoardTheme}
+          onPieceSet={setPieceSet}
+          onClose={() => setShowThemes(false)}
+        />
+      )}
     </div>
   );
 }

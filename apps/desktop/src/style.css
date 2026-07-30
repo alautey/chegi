@@ -185,6 +185,31 @@ body {
   background: #a98b5e;
 }
 
+.board[data-theme='green'] .square.light {
+  background: #eeeed2;
+}
+
+.board[data-theme='green'] .square.dark {
+  background: #769656;
+}
+
+.board[data-theme='blue'] .square.light {
+  background: #dee6ed;
+}
+
+.board[data-theme='blue'] .square.dark {
+  background: #4f7ca6;
+}
+
+/* A real shogi ban has no alternating colors — one wood tone with thin ruled
+ * lines. box-shadow (rather than border) avoids doubled lines where squares
+ * meet. */
+.board[data-theme='shogi'] .square.light,
+.board[data-theme='shogi'] .square.dark {
+  background: #d9b779;
+  box-shadow: inset -1px -1px 0 #6b4f2a;
+}
+
 .square.selected {
   outline: 3px solid #4f9dde inset;
 }
@@ -218,17 +243,32 @@ body {
   position: relative;
   width: 44px;
   height: 50px;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4));
+  user-select: none;
+}
+
+/* clip-path shapes ignore normal borders, so the outline is faked with a
+ * second, slightly larger copy of the same pentagon behind the fill —
+ * the sliver that peeks out around the edge reads as a border. */
+.piece-tile-outline {
+  position: absolute;
+  inset: 0;
+  background: #201a10;
+  clip-path: polygon(50% 0%, 85% 24%, 100% 100%, 0% 100%, 15% 24%);
+}
+
+.piece-tile-fill {
+  position: absolute;
+  inset: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding-top: 4px;
   font-weight: 700;
-  font-size: 19px;
+  font-size: 17px;
   color: #201a10;
   background: #e8cf9c;
   clip-path: polygon(50% 0%, 85% 24%, 100% 100%, 0% 100%, 15% 24%);
-  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4));
-  user-select: none;
 }
 
 /* Pieces lie flat and are told apart only by which way they point — a
@@ -237,6 +277,9 @@ body {
  * Black's are flipped to point down. */
 .piece-flipped {
   transform: rotate(180deg);
+}
+
+.piece-flipped .piece-tile-fill {
   padding-top: 0;
   padding-bottom: 4px;
 }
@@ -246,7 +289,7 @@ body {
 }
 
 .piece-tile-glyph {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 400;
 }
 
@@ -307,6 +350,15 @@ body {
   color: #d9c9a3;
 }
 
+/* The shogi theme is one flat wood tone (no alternating light/dark), so both
+ * label colors need to be the same dark tone to stay readable. */
+.board[data-theme='shogi'] .square.light .coord-rank,
+.board[data-theme='shogi'] .square.light .coord-file,
+.board[data-theme='shogi'] .square.dark .coord-rank,
+.board[data-theme='shogi'] .square.dark .coord-file {
+  color: #6b4f2a;
+}
+
 .hint {
   font-size: 13px;
   color: #b8ac97;
@@ -319,6 +371,10 @@ body {
   gap: 16px;
   align-self: stretch;
   justify-content: center;
+}
+
+.side-left {
+  justify-content: space-between;
 }
 
 .hand {
@@ -573,4 +629,126 @@ body {
   color: #b8ac97;
   margin-top: 6px;
   line-height: 1.4;
+}
+
+.themes-modal {
+  background: #2a251d;
+  border: 1px solid #6b5f47;
+  border-radius: 8px;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.themes-body {
+  padding: 18px 24px;
+  overflow-y: auto;
+}
+
+.themes-body section {
+  margin-bottom: 22px;
+}
+
+.themes-body section:last-child {
+  margin-bottom: 0;
+}
+
+.themes-body h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #b8ac97;
+  margin: 0 0 10px;
+}
+
+.theme-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: #201c16;
+  border: 2px solid #3a352c;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  color: #d8cdb8;
+  font-size: 12px;
+  width: 92px;
+}
+
+.theme-option:hover {
+  border-color: #6b5f47;
+}
+
+.theme-option.active {
+  border-color: #4f9dde;
+  color: #f0e9dd;
+}
+
+.swatch-board {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.swatch-board span:nth-child(1),
+.swatch-board span:nth-child(4) {
+  background: var(--swatch-light);
+}
+
+.swatch-board span:nth-child(2),
+.swatch-board span:nth-child(3) {
+  background: var(--swatch-dark);
+}
+
+.swatch-board-wood {
+  --swatch-light: #d9c9a3;
+  --swatch-dark: #a98b5e;
+}
+
+.swatch-board-green {
+  --swatch-light: #eeeed2;
+  --swatch-dark: #769656;
+}
+
+.swatch-board-blue {
+  --swatch-light: #dee6ed;
+  --swatch-dark: #4f7ca6;
+}
+
+.swatch-board-shogi {
+  --swatch-light: #d9b779;
+  --swatch-dark: #d9b779;
+}
+
+.swatch-board-shogi span {
+  box-shadow: inset -1px -1px 0 #6b4f2a;
+}
+
+.swatch-pieces {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  color: #f0e9dd;
+}
+
+.swatch-piece {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

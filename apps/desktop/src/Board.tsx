@@ -1,7 +1,16 @@
 import type { Color, Coord, Move } from '@chegi/engine';
 import { Game } from '@chegi/engine';
 import { GeneralIcon } from './GeneralIcon.js';
-import { pieceMark, pieceUsesGlyph } from './pieceDisplay.js';
+import { pieceDisplayContent, type PieceSetId, usesLargeMark } from './pieceDisplay.js';
+
+export type BoardTheme = 'wood' | 'green' | 'blue' | 'shogi';
+
+export const BOARD_THEME_NAMES: Record<BoardTheme, string> = {
+  wood: 'Wood',
+  green: 'Green',
+  blue: 'Blue',
+  shogi: 'Shogi Grid',
+};
 
 interface Props {
   game: Game;
@@ -16,6 +25,8 @@ interface Props {
   checkSquare: Coord | null;
   /** Whether the check on checkSquare is checkmate — drawn more intensely than a plain check. */
   checkmate: boolean;
+  boardTheme: BoardTheme;
+  pieceSet: PieceSetId;
 }
 
 function coordIn(list: Coord[], c: Coord): boolean {
@@ -24,7 +35,18 @@ function coordIn(list: Coord[], c: Coord): boolean {
 
 const FILE_LETTERS = 'abcdefgh';
 
-export default function Board({ game, selected, targets, onSquareClick, viewColor, lastMove, checkSquare, checkmate }: Props) {
+export default function Board({
+  game,
+  selected,
+  targets,
+  onSquareClick,
+  viewColor,
+  lastMove,
+  checkSquare,
+  checkmate,
+  boardTheme,
+  pieceSet,
+}: Props) {
   // Rendered so viewColor's home rank is at the bottom, files ascending left to right from
   // that player's seat — a full 180° turn of the board, not a mirror, when viewColor is 'b'.
   const ranks = viewColor === 'w' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
@@ -33,7 +55,7 @@ export default function Board({ game, selected, targets, onSquareClick, viewColo
   const lastTo = lastMove ? lastMove.to : null;
 
   return (
-    <div className="board">
+    <div className="board" data-theme={boardTheme}>
       {ranks.map((rank) =>
         files.map((file) => {
           const coord = { file, rank };
@@ -51,13 +73,18 @@ export default function Board({ game, selected, targets, onSquareClick, viewColo
           if (isSelected) classes.push('selected');
           if (isTarget) classes.push('target');
 
+          const content = piece ? pieceDisplayContent(piece, pieceSet) : null;
+
           return (
             <div key={`${file},${rank}`} className={classes.join(' ')} onClick={() => onSquareClick(coord)}>
-              {piece && (
-                <span
-                  className={`piece-tile ${piece.color !== viewColor ? 'piece-flipped' : ''} ${piece.promoted ? 'piece-promoted' : ''} ${pieceUsesGlyph(piece) ? 'piece-tile-glyph' : ''}`}
-                >
-                  {piece.type === 'G' ? <GeneralIcon /> : pieceMark(piece)}
+              {piece && content && (
+                <span className={`piece-tile ${piece.color !== viewColor ? 'piece-flipped' : ''}`}>
+                  <span className="piece-tile-outline" />
+                  <span
+                    className={`piece-tile-fill ${piece.promoted ? 'piece-promoted' : ''} ${usesLargeMark(piece, pieceSet) ? 'piece-tile-glyph' : ''}`}
+                  >
+                    {'icon' in content ? <GeneralIcon /> : content.text}
+                  </span>
                 </span>
               )}
               {isTarget && !piece && <span className="target-dot" />}

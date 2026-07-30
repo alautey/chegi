@@ -33,6 +33,46 @@ export function pieceMark(piece: Piece): string {
   return pieceLabel(piece);
 }
 
+// Kanji borrowed from real Shogi where a piece has a direct counterpart
+// (King/Rook/Bishop/General/Knight/Pawn); Queen has no Shogi equivalent, so
+// it uses 后 ("consort/queen"). Promotion is still shown by turning the mark
+// red, same as every other set, rather than swapping to a different kanji.
+const KANJI: Record<PieceType, string> = {
+  K: '王',
+  Q: '后',
+  R: '飛',
+  B: '角',
+  G: '銀',
+  N: '桂',
+  P: '歩',
+};
+
+export type PieceSetId = 'chess' | 'letters' | 'kanji';
+
+export const PIECE_SET_NAMES: Record<PieceSetId, string> = {
+  chess: 'Chess',
+  letters: 'Notation Letters',
+  kanji: 'Shogi Kanji',
+};
+
+export type PieceDisplayContent = { icon: 'general' } | { text: string };
+
+/** What to render on a tile's fill layer for the given piece set. */
+export function pieceDisplayContent(piece: Piece, setId: PieceSetId): PieceDisplayContent {
+  if (setId === 'letters') return { text: pieceLabel(piece) };
+  if (setId === 'kanji') return { text: KANJI[piece.type] };
+  // 'chess'
+  if (piece.type === 'G') return { icon: 'general' };
+  return { text: pieceMark(piece) };
+}
+
+/** Whether the fill layer should use the larger glyph-sized font for this set/piece. */
+export function usesLargeMark(piece: Piece, setId: PieceSetId): boolean {
+  if (setId === 'kanji') return true;
+  if (setId === 'letters') return false;
+  return pieceUsesGlyph(piece);
+}
+
 export const PIECE_NAMES: Record<PieceType, string> = {
   K: 'King',
   Q: 'Queen',

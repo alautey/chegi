@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { BoardTheme } from './Board.js';
 import Board from './Board.js';
 import type { Demo } from './learnDemos.js';
 import {
@@ -17,6 +18,7 @@ import {
   queenDemo,
   rookDemo,
 } from './learnDemos.js';
+import type { PieceSetId } from './pieceDisplay.js';
 
 type SectionKey = 'moves' | 'promotion' | 'drops' | 'templar' | 'enpassant' | 'checkmate';
 
@@ -29,7 +31,12 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'checkmate', label: 'Checkmate' },
 ];
 
-function DemoBoard({ demo, caption }: { demo: Demo; caption?: string }) {
+interface ThemeProps {
+  boardTheme: BoardTheme;
+  pieceSet: PieceSetId;
+}
+
+function DemoBoard({ demo, caption, boardTheme, pieceSet }: { demo: Demo; caption?: string } & ThemeProps) {
   return (
     <div className="demo-board-item">
       <div className="demo-board-wrap">
@@ -42,6 +49,8 @@ function DemoBoard({ demo, caption }: { demo: Demo; caption?: string }) {
           lastMove={null}
           checkSquare={demo.checkSquare ?? null}
           checkmate={demo.checkmate ?? false}
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
         />
       </div>
       {caption && <div className="demo-caption">{caption}</div>}
@@ -49,7 +58,7 @@ function DemoBoard({ demo, caption }: { demo: Demo; caption?: string }) {
   );
 }
 
-function MovesSection() {
+function MovesSection({ boardTheme, pieceSet }: ThemeProps) {
   return (
     <div className="learn-section">
       <p>
@@ -57,20 +66,40 @@ function MovesSection() {
         them. Capturing works exactly like moving: land on an enemy piece and it joins your hand.
       </p>
       <div className="demo-grid">
-        <DemoBoard demo={kingDemo()} caption="King — one step in any direction." />
-        <DemoBoard demo={queenDemo()} caption="Queen — any distance, straight or diagonal." />
-        <DemoBoard demo={rookDemo()} caption="Rook — any distance, straight only." />
-        <DemoBoard demo={bishopDemo()} caption="Bishop — any distance, diagonal only." />
-        <DemoBoard demo={generalDemo()} caption="General — one step forward, both forward diagonals, or either backward diagonal (never sideways or straight back)." />
-        <DemoBoard demo={knightDemo()} caption="Knight — a full set of eight L-shaped jumps in any direction, same as a chess knight. It jumps over other pieces." />
-        <DemoBoard demo={pawnDemo()} caption="Pawn — one step straight ahead (only into an empty square); captures only diagonally ahead." />
-        <DemoBoard demo={pawnDoubleStepDemo()} caption="Pawn on its own starting square may advance two steps instead of one." />
+        <DemoBoard demo={kingDemo()} caption="King — one step in any direction." boardTheme={boardTheme} pieceSet={pieceSet} />
+        <DemoBoard demo={queenDemo()} caption="Queen — any distance, straight or diagonal." boardTheme={boardTheme} pieceSet={pieceSet} />
+        <DemoBoard demo={rookDemo()} caption="Rook — any distance, straight only." boardTheme={boardTheme} pieceSet={pieceSet} />
+        <DemoBoard demo={bishopDemo()} caption="Bishop — any distance, diagonal only." boardTheme={boardTheme} pieceSet={pieceSet} />
+        <DemoBoard
+          demo={generalDemo()}
+          caption="General — one step forward, both forward diagonals, or either backward diagonal (never sideways or straight back)."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
+        <DemoBoard
+          demo={knightDemo()}
+          caption="Knight — a full set of eight L-shaped jumps in any direction, same as a chess knight. It jumps over other pieces."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
+        <DemoBoard
+          demo={pawnDemo()}
+          caption="Pawn — one step straight ahead (only into an empty square); captures only diagonally ahead."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
+        <DemoBoard
+          demo={pawnDoubleStepDemo()}
+          caption="Pawn on its own starting square may advance two steps instead of one."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
       </div>
     </div>
   );
 }
 
-function PromotionSection() {
+function PromotionSection({ boardTheme, pieceSet }: ThemeProps) {
   return (
     <div className="learn-section">
       <p>
@@ -81,9 +110,24 @@ function PromotionSection() {
       </p>
       <p>Promoting flips the piece over — its mark turns red to show it.</p>
       <div className="demo-grid">
-        <DemoBoard demo={goldGeneralDemo()} caption="General, Knight, or Pawn promotes into a Gold General — one step any direction except diagonally backward." />
-        <DemoBoard demo={dragonKingDemo()} caption="Rook promotes into a Dragon King — everything a Rook can do, plus one step diagonally." />
-        <DemoBoard demo={dragonHorseDemo()} caption="Bishop promotes into a Dragon Horse — everything a Bishop can do, plus one step straight." />
+        <DemoBoard
+          demo={goldGeneralDemo()}
+          caption="General, Knight, or Pawn promotes into a Gold General — one step any direction except diagonally backward."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
+        <DemoBoard
+          demo={dragonKingDemo()}
+          caption="Rook promotes into a Dragon King — everything a Rook can do, plus one step diagonally."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
+        <DemoBoard
+          demo={dragonHorseDemo()}
+          caption="Bishop promotes into a Dragon Horse — everything a Bishop can do, plus one step straight."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
       </div>
       <p className="learn-note">
         A captured piece always reverts to its unpromoted form the moment it's captured — it re-enters play from
@@ -110,7 +154,7 @@ function DropsSection() {
   );
 }
 
-function TemplarSection() {
+function TemplarSection({ boardTheme, pieceSet }: ThemeProps) {
   return (
     <div className="learn-section">
       <p>
@@ -123,13 +167,15 @@ function TemplarSection() {
         <DemoBoard
           demo={knightsTemplarDemo()}
           caption="Black's Bishop just captured White's Bishop from h8, its first move. White's b1 Knight now has one extra option — a straight leap to a1 to recapture it — on top of its normal knight moves."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
         />
       </div>
     </div>
   );
 }
 
-function EnPassantSection() {
+function EnPassantSection({ boardTheme, pieceSet }: ThemeProps) {
   return (
     <div className="learn-section">
       <p>
@@ -141,13 +187,15 @@ function EnPassantSection() {
         <DemoBoard
           demo={enPassantDemo()}
           caption="Black's d-pawn just double-stepped past White's e-pawn. White may capture it en passant, landing on d6 — alongside the normal push to e6."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
         />
       </div>
     </div>
   );
 }
 
-function CheckmateSection() {
+function CheckmateSection({ boardTheme, pieceSet }: ThemeProps) {
   return (
     <div className="learn-section">
       <p>The object of the game is to capture the opponent's King. In practice, play stops at checkmate:</p>
@@ -163,37 +211,42 @@ function CheckmateSection() {
         <li>You may also resign at any time instead of playing on.</li>
       </ul>
       <div className="demo-grid">
-        <DemoBoard demo={checkmateDemo()} caption="Black's King is cornered on h8 with all three escape squares covered — checkmate." />
+        <DemoBoard
+          demo={checkmateDemo()}
+          caption="Black's King is cornered on h8 with all three escape squares covered — checkmate."
+          boardTheme={boardTheme}
+          pieceSet={pieceSet}
+        />
       </div>
     </div>
   );
 }
 
-function renderSection(key: SectionKey) {
+function renderSection(key: SectionKey, themeProps: ThemeProps) {
   switch (key) {
     case 'moves':
-      return <MovesSection />;
+      return <MovesSection {...themeProps} />;
     case 'promotion':
-      return <PromotionSection />;
+      return <PromotionSection {...themeProps} />;
     case 'drops':
       return <DropsSection />;
     case 'templar':
-      return <TemplarSection />;
+      return <TemplarSection {...themeProps} />;
     case 'enpassant':
-      return <EnPassantSection />;
+      return <EnPassantSection {...themeProps} />;
     case 'checkmate':
-      return <CheckmateSection />;
+      return <CheckmateSection {...themeProps} />;
   }
 }
 
-export default function LearnToPlay({ onClose }: { onClose: () => void }) {
+export default function LearnToPlay({ boardTheme, pieceSet, onClose }: ThemeProps & { onClose: () => void }) {
   const [section, setSection] = useState<SectionKey>('moves');
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="learn-modal" onClick={(e) => e.stopPropagation()}>
         <div className="learn-header">
-          <h2>Learn to Play</h2>
+          <h2>How to Play</h2>
           <button onClick={onClose}>Close</button>
         </div>
         <div className="learn-body">
@@ -208,7 +261,7 @@ export default function LearnToPlay({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </nav>
-          <div className="learn-content">{renderSection(section)}</div>
+          <div className="learn-content">{renderSection(section, { boardTheme, pieceSet })}</div>
         </div>
       </div>
     </div>
