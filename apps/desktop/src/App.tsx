@@ -49,6 +49,9 @@ export default function App() {
   const [gameOverMessage, setGameOverMessage] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  // null = viewing the live position; -1..history.length-1 = viewing the position
+  // right after that history entry (-1 is the starting position, before any moves).
+  const [reviewIndex, setReviewIndex] = useState<number | null>(null);
   const [boardTheme, setBoardTheme] = useStoredState<BoardTheme>('chegi.boardTheme', 'wood', ['wood', 'green', 'blue', 'shogi']);
   const [pieceSet, setPieceSet] = useStoredState<PieceSetId>('chegi.pieceSet', 'chess', ['chess', 'letters', 'kanji']);
 
@@ -63,6 +66,45 @@ export default function App() {
   const legalMoves = useMemo(() => game.legalMoves(), [game, version]);
   const gameOver = legalMoves.length === 0 || gameOverMessage !== null;
 
+  const reviewing = reviewIndex !== null;
+  // Reviewing never mutates the live game — it replays moves into a throwaway
+  // snapshot, the same trick used to rebuild state after an online create/join.
+  const boardGame = useMemo(() => {
+    if (reviewIndex === null) return game;
+    const g = new Game();
+    for (let i = 0; i <= reviewIndex; i++) g.applyMove(game.history[i].move);
+    return g;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game, version, reviewIndex]);
+
+  function exitReview() {
+    setReviewIndex(null);
+  }
+
+  function goToStart() {
+    if (game.history.length === 0) return;
+    setSelection(null);
+    setReviewIndex(-1);
+  }
+
+  function goToPrev() {
+    if (game.history.length === 0) return;
+    setSelection(null);
+    setReviewIndex((cur) => {
+      const at = cur === null ? game.history.length - 1 : cur;
+      return Math.max(-1, at - 1);
+    });
+  }
+
+  function goToNext() {
+    setSelection(null);
+    setReviewIndex((cur) => {
+      if (cur === null) return null;
+      const next = cur + 1;
+      return next >= game.history.length - 1 ? null : next;
+    });
+  }
+
   function resetLocalGame(history: AppliedMove[]) {
     const g = new Game();
     for (const h of history) g.applyMove(h.move);
@@ -70,6 +112,7 @@ export default function App() {
     setSelection(null);
     setPendingPromotion(null);
     setGameOverMessage(null);
+    setReviewIndex(null);
     bump();
   }
 
@@ -144,6 +187,23 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opponentMode, humanColor, aiDifficulty, version, gameOver]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+      if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goToNext();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game, version]);
+
   const targets = useMemo<Coord[]>(() => {
     if (!selection) return [];
     if (selection.kind === 'square') {
@@ -163,7 +223,7 @@ export default function App() {
   }
 
   function handleSquareClick(coord: Coord) {
-    if (pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
+    if (reviewing || pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
     const piece = game.board.get(coord);
 
     if (!selection) {
@@ -202,7 +262,7 @@ export default function App() {
   }
 
   function handleHandSelect(color: 'w' | 'b', type: PieceType) {
-    if (pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
+    if (reviewing || pendingPromotion || aiThinking || gameOver || !onlineTurnOk) return;
     if (color !== game.turn) return;
     if (type === 'K') return; // King can never be captured (capturing it ends the game), so never in hand
     setSelection({ kind: 'hand', pieceType: type });
@@ -241,6 +301,7 @@ export default function App() {
     setPendingPromotion(null);
     setAiThinking(false);
     setGameOverMessage(null);
+    setReviewIndex(null);
     if (opponentMode === 'online') online.disconnect();
     bump();
   }
@@ -265,6 +326,18 @@ export default function App() {
   } else {
     status = `${turnName} to move${inCheck ? ' — Check!' : ''}`;
   }
+
+  // What actually gets drawn on the board: the live game normally, or a
+  // read-only replayed snapshot while reviewing past moves.
+  const boardInCheck = boardGame.isInCheck();
+  const boardCheckSquare = boardInCheck ? boardGame.board.findKing(boardGame.turn) : null;
+  const boardCheckmate = boardInCheck && boardGame.legalMoves().length === 0;
+  const boardLastMove = boardGame.history.length > 0 ? boardGame.history[boardGame.history.length - 1].move : null;
+  const displayStatus = reviewing
+    ? reviewIndex === -1
+      ? 'Start position'
+      : `After move ${reviewIndex + 1} of ${game.history.length}`
+    : status;
 
   const movingPieceType =
     selection?.kind === 'square' ? game.board.get(selection.coord)?.type : selection?.kind === 'hand' ? selection.pieceType : null;
@@ -373,16 +446,23 @@ export default function App() {
         </div>
 
         <div className="center">
-          <div className={`status ${inCheck ? 'status-check' : ''}`}>{status}</div>
+          <div className={`status ${boardInCheck ? 'status-check' : ''}`}>
+            {displayStatus}
+            {reviewing && (
+              <button className="live-button" onClick={exitReview}>
+                Back to Live
+              </button>
+            )}
+          </div>
           <Board
-            game={game}
-            selected={selection?.kind === 'square' ? selection.coord : null}
-            targets={targets}
+            game={boardGame}
+            selected={reviewing ? null : selection?.kind === 'square' ? selection.coord : null}
+            targets={reviewing ? [] : targets}
             onSquareClick={handleSquareClick}
             viewColor={viewColor}
-            lastMove={game.history.length > 0 ? game.history[game.history.length - 1].move : null}
-            checkSquare={checkSquare}
-            checkmate={noMoves && inCheck}
+            lastMove={boardLastMove}
+            checkSquare={boardCheckSquare}
+            checkmate={boardCheckmate}
             boardTheme={boardTheme}
             pieceSet={pieceSet}
           />
@@ -395,10 +475,32 @@ export default function App() {
             <ol className="history-list">
               {game.history.map((h, i) => (
                 <li key={i}>
-                  <span className={h.color === 'w' ? 'move-white' : 'move-black'}>{h.notation}</span>
+                  <button
+                    className={`move-entry ${h.color === 'w' ? 'move-white' : 'move-black'} ${reviewIndex === i ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelection(null);
+                      setReviewIndex(i);
+                    }}
+                  >
+                    {h.notation}
+                  </button>
                 </li>
               ))}
             </ol>
+            <div className="review-controls">
+              <button onClick={goToStart} disabled={game.history.length === 0 || reviewIndex === -1} title="First move">
+                ⏮
+              </button>
+              <button onClick={goToPrev} disabled={game.history.length === 0 || reviewIndex === -1} title="Previous move">
+                ◀
+              </button>
+              <button onClick={goToNext} disabled={!reviewing} title="Next move">
+                ▶
+              </button>
+              <button onClick={exitReview} disabled={!reviewing} title="Jump to current position">
+                Live
+              </button>
+            </div>
           </div>
         </div>
       </div>
