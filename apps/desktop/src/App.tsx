@@ -38,6 +38,7 @@ export default function App() {
   const [version, bump] = useReducer((x: number) => x + 1, 0);
   const [selection, setSelection] = useState<Selection>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Coord; to: Coord } | null>(null);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
 
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('human');
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
@@ -284,7 +285,11 @@ export default function App() {
 
   function resign() {
     if (gameOver) return;
-    if (!window.confirm('Resign this game?')) return;
+    setShowResignConfirm(true);
+  }
+
+  function confirmResign() {
+    setShowResignConfirm(false);
     if (opponentMode === 'online') {
       online.resign();
       return;
@@ -299,6 +304,7 @@ export default function App() {
     gameRef.current = new Game();
     resetSelection();
     setPendingPromotion(null);
+    setShowResignConfirm(false);
     setAiThinking(false);
     setGameOverMessage(null);
     setReviewIndex(null);
@@ -512,6 +518,18 @@ export default function App() {
             <div className="modal-buttons">
               <button onClick={() => choosePromotion(true)}>Promote</button>
               <button onClick={() => choosePromotion(false)}>Decline</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResignConfirm && (
+        <div className="modal-backdrop" onClick={() => setShowResignConfirm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <p>Resign this game?</p>
+            <div className="modal-buttons">
+              <button onClick={confirmResign}>Resign</button>
+              <button onClick={() => setShowResignConfirm(false)}>Cancel</button>
             </div>
           </div>
         </div>
